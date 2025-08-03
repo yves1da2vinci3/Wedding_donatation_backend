@@ -175,13 +175,13 @@ const logout = async (req, res) => {
   try {
     const refreshToken = req.body.refreshToken;
     
-    // Révoquer le refresh token s'il est fourni
+    // Révoquer le refresh token spécifique s'il est fourni
     if (refreshToken) {
       await revokeRefreshToken(refreshToken);
     }
 
-    // Alternativement, révoquer tous les tokens de l'admin
-    // await revokeAllRefreshTokens(req.admin.id);
+    // Révoquer tous les tokens de l'admin connecté pour une déconnexion complète
+    await revokeAllRefreshTokens(req.admin.id);
 
     res.json({
       message: 'Déconnexion réussie'
