@@ -42,8 +42,8 @@ const validateUpdateProfile = [
     .withMessage('Le nom doit contenir entre 2 et 100 caractères'),
   body('phone')
     .optional()
-    .isMobilePhone('any')
-    .withMessage('Numéro de téléphone invalide'),
+    .matches(/^[\+]?[0-9\s\-\(\)]{8,20}$/)
+    .withMessage('Numéro de téléphone invalide (format: +33 6 12 34 56 78 ou 0612345678)'),
   body('settings.emailNotifications')
     .optional()
     .isBoolean()

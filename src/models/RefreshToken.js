@@ -16,8 +16,7 @@ const refreshTokenSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    required: true,
-    index: true
+    required: true
   },
   isRevoked: {
     type: Boolean,
@@ -39,11 +38,11 @@ const refreshTokenSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index pour supprimer automatiquement les tokens expirés
-refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 // Index composé pour optimiser les requêtes fréquentes
 refreshTokenSchema.index({ admin: 1, isRevoked: 1 });
+
+// Index TTL pour supprimer automatiquement les tokens expirés
+refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Méthode statique pour générer un nouveau token
 refreshTokenSchema.statics.generateToken = function() {

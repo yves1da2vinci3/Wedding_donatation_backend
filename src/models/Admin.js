@@ -59,9 +59,6 @@ const adminSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index pour améliorer les performances
-adminSchema.index({ email: 1 });
-
 // Méthode pour comparer les mots de passe
 adminSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);

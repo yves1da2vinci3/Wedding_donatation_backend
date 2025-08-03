@@ -3,10 +3,7 @@ require('dotenv').config();
 module.exports = {
   mongodb: {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/wedding_donation',
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
+    options: {}
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'your-fallback-secret-key-change-in-production',
