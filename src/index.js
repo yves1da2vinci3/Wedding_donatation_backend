@@ -62,8 +62,17 @@ app.use((err, req, res, next) => {
 });
 
 // // Seed data
-// const { seedData } = require("./utils/seedData");
-// seedData();
+// const { seedData, createDefaultAdmin } = require("./utils/seedData");
+// // Créer l'admin par défaut au démarrage
+// createDefaultAdmin().then(() => {
+//   console.log('✅ Admin initialization completed');
+//   // Créer les données de test seulement en développement
+//   if (process.env.NODE_ENV === 'development') {
+//     seedData().then(() => {
+//       console.log('✅ Test data initialization completed');
+//     });
+//   }
+// });
 
 // Route 404
 app.use("*", (req, res) => {

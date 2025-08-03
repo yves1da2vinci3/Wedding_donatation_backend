@@ -9,7 +9,6 @@ const {
   revokeRefreshToken, 
   revokeAllRefreshTokens,
   getActiveTokensInfo,
-  extractTokenFromHeader 
 } = require('../utils/tokenUtils');
 
 // @desc    Login administrateur
@@ -28,9 +27,11 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
 
+   console.log("🚀 ~ login ~ req.body:", req.body)
+
     // Vérifier si l'admin existe
     const admin = await Admin.findOne({ email }).select('+password');
-    console.log("🚀 ~ login ~ admin:", admin)
+    // console.log("🚀 ~ login ~ admin:", admin)
     
     if (!admin) {
       return res.status(401).json({
