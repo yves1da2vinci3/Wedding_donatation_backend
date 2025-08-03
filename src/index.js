@@ -21,13 +21,13 @@ connectDB();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "http://localhost:8081",
     credentials: true,
   })
 );
 
 // Middleware de logging
-app.use(morgan("combined"));
+app.use(morgan("dev"));
 
 // Middleware pour parser le JSON
 app.use(express.json({ limit: "10mb" }));

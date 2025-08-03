@@ -1,13 +1,16 @@
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const Admin = require('../models/Admin');
-
-// Générer un token JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-  });
-};
+const RefreshToken = require('../models/RefreshToken');
+const config = require('../config/config');
+const { 
+  createTokenPair, 
+  renewTokens, 
+  revokeRefreshToken, 
+  revokeAllRefreshTokens,
+  getActiveTokensInfo,
+  extractTokenFromHeader 
+} = require('../utils/tokenUtils');
 
 // @desc    Login administrateur
 // @route   POST /api/auth/login
@@ -27,6 +30,8 @@ const login = async (req, res) => {
 
     // Vérifier si l'admin existe
     const admin = await Admin.findOne({ email }).select('+password');
+    console.log("🚀 ~ login ~ admin:", admin)
+    
     if (!admin) {
       return res.status(401).json({
         message: 'Email ou mot de passe incorrect'
@@ -52,13 +57,21 @@ const login = async (req, res) => {
     admin.lastLogin = new Date();
     await admin.save();
 
-    // Générer le token
-    const token = generateToken(admin._id);
+    // Créer les tokens (access + refresh)
+    const tokenOptions = {
+      userAgent: req.get('User-Agent') || '',
+      ipAddress: req.ip || req.connection.remoteAddress || ''
+    };
+
+    const tokens = await createTokenPair(admin, tokenOptions);
 
     // Réponse de succès
     res.json({
       message: 'Connexion réussie',
-      token,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      tokenType: tokens.tokenType,
       admin: {
         id: admin._id,
         name: admin.name,
@@ -73,6 +86,46 @@ const login = async (req, res) => {
     res.status(500).json({
       message: 'Erreur interne du serveur',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
+    });
+  }
+};
+
+// @desc    Renouveler les tokens avec un refresh token
+// @route   POST /api/auth/refresh
+// @access  Public
+const refreshTokens = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        message: 'Refresh token requis'
+      });
+    }
+
+    // Options pour le nouveau token
+    const tokenOptions = {
+      userAgent: req.get('User-Agent') || '',
+      ipAddress: req.ip || req.connection.remoteAddress || ''
+    };
+
+    // Renouveler les tokens
+    const result = await renewTokens(refreshToken, tokenOptions);
+
+    res.json({
+      message: 'Tokens renouvelés avec succès',
+      token: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: config.jwt.expiresIn || '15m',
+      tokenType: 'Bearer',
+      admin: result.admin
+    });
+
+  } catch (error) {
+    console.error('Erreur renouvellement tokens:', error);
+    res.status(401).json({
+      message: 'Échec du renouvellement des tokens',
+      error: error.message
     });
   }
 };
@@ -119,15 +172,43 @@ const getMe = async (req, res) => {
 // @access  Private
 const logout = async (req, res) => {
   try {
-    // Dans une vraie application, on pourrait maintenir une blacklist des tokens
-    // ou utiliser une base de données Redis pour gérer les sessions
+    const refreshToken = req.body.refreshToken;
     
+    // Révoquer le refresh token s'il est fourni
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
+
+    // Alternativement, révoquer tous les tokens de l'admin
+    // await revokeAllRefreshTokens(req.admin.id);
+
     res.json({
       message: 'Déconnexion réussie'
     });
 
   } catch (error) {
     console.error('Erreur de déconnexion:', error);
+    res.status(500).json({
+      message: 'Erreur interne du serveur',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
+    });
+  }
+};
+
+// @desc    Logout de tous les appareils
+// @route   POST /api/auth/logout-all
+// @access  Private
+const logoutAll = async (req, res) => {
+  try {
+    // Révoquer tous les refresh tokens de l'admin
+    await revokeAllRefreshTokens(req.admin.id);
+
+    res.json({
+      message: 'Déconnexion de tous les appareils réussie'
+    });
+
+  } catch (error) {
+    console.error('Erreur déconnexion globale:', error);
     res.status(500).json({
       message: 'Erreur interne du serveur',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
@@ -149,7 +230,7 @@ const changePassword = async (req, res) => {
       });
     }
 
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, revokeAllTokens = true } = req.body;
     const admin = await Admin.findById(req.admin.id).select('+password');
 
     if (!admin) {
@@ -170,8 +251,14 @@ const changePassword = async (req, res) => {
     admin.password = newPassword;
     await admin.save();
 
+    // Révoquer tous les refresh tokens pour forcer une nouvelle connexion
+    if (revokeAllTokens) {
+      await revokeAllRefreshTokens(admin._id);
+    }
+
     res.json({
-      message: 'Mot de passe modifié avec succès'
+      message: 'Mot de passe modifié avec succès',
+      tokensRevoked: revokeAllTokens
     });
 
   } catch (error) {
@@ -237,10 +324,71 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// @desc    Obtenir les tokens actifs de l'admin
+// @route   GET /api/auth/tokens
+// @access  Private
+const getActiveTokens = async (req, res) => {
+  try {
+    const tokens = await getActiveTokensInfo(req.admin.id);
+
+    res.json({
+      message: 'Tokens actifs récupérés',
+      tokens,
+      count: tokens.length
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération tokens:', error);
+    res.status(500).json({
+      message: 'Erreur interne du serveur',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
+    });
+  }
+};
+
+// @desc    Révoquer un token spécifique
+// @route   DELETE /api/auth/tokens/:tokenId
+// @access  Private
+const revokeToken = async (req, res) => {
+  try {
+    const { tokenId } = req.params;
+
+    // Trouver et révoquer le token s'il appartient à l'admin connecté
+    const token = await RefreshToken.findOne({
+      _id: tokenId,
+      admin: req.admin.id,
+      isRevoked: false
+    });
+
+    if (!token) {
+      return res.status(404).json({
+        message: 'Token non trouvé ou déjà révoqué'
+      });
+    }
+
+    await token.revoke();
+
+    res.json({
+      message: 'Token révoqué avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur révocation token:', error);
+    res.status(500).json({
+      message: 'Erreur interne du serveur',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
+    });
+  }
+};
+
 module.exports = {
   login,
+  refreshTokens,
   getMe,
   logout,
+  logoutAll,
   changePassword,
-  updateProfile
+  updateProfile,
+  getActiveTokens,
+  revokeToken
 };

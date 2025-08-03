@@ -19,7 +19,20 @@ const validateChangePassword = [
     .isLength({ min: 6 })
     .withMessage('Le nouveau mot de passe doit contenir au moins 6 caractères')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre')
+    .withMessage('Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre'),
+  body('revokeAllTokens')
+    .optional()
+    .isBoolean()
+    .withMessage('revokeAllTokens doit être un booléen')
+];
+
+// Validation pour le refresh token
+const validateRefreshToken = [
+  body('refreshToken')
+    .notEmpty()
+    .withMessage('Le refresh token est requis')
+    .isLength({ min: 64, max: 256 })
+    .withMessage('Format de refresh token invalide')
 ];
 
 const validateUpdateProfile = [
@@ -143,6 +156,7 @@ const validateUpdateEnvelope = [
 module.exports = {
   validateLogin,
   validateChangePassword,
+  validateRefreshToken,
   validateUpdateProfile,
   validateDonation,
   validateUpdateDonation,
