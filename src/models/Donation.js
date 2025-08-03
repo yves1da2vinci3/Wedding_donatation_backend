@@ -81,7 +81,6 @@ const donationSchema = new mongoose.Schema({
 });
 
 // Index pour améliorer les performances
-donationSchema.index({ reference: 1 });
 donationSchema.index({ email: 1 });
 donationSchema.index({ status: 1 });
 donationSchema.index({ paymentMethod: 1 });
