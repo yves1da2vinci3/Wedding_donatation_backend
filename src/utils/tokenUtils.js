@@ -14,7 +14,7 @@ const generateAccessToken = (admin) => {
   };
 
   return jwt.sign(payload, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn || '15m',
+    expiresIn: config.jwt.expiresIn || '1d',
     issuer: 'wedding-donation-api',
     audience: 'wedding-donation-admin'
   });
