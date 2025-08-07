@@ -10,6 +10,7 @@ const donationRoutes = require("./routes/donations");
 const envelopeRoutes = require("./routes/envelopes");
 const dashboardRoutes = require("./routes/dashboard");
 const settingsRoutes = require("./routes/settings");
+const paystackRoutes = require("./routes/paystack");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,9 +20,26 @@ connectDB();
 
 // Middleware de sécurité
 app.use(helmet());
+
+// Gestion de plusieurs origines pour CORS
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:8081,http://localhost:8080")
+  .split(",")
+  .map(origin => origin.trim());
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:8081",
+    origin: function (origin, callback) {
+      // Autoriser les requêtes sans origin (comme Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(
+          new Error("Not allowed by CORS: " + origin),
+          false
+        );
+      }
+    },
     credentials: true,
   })
 );
@@ -48,6 +66,8 @@ app.use("/api/donations", donationRoutes);
 app.use("/api/envelopes", envelopeRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/settings", settingsRoutes);
+
+app.use("/api/paystack", paystackRoutes);
 
 // Middleware de gestion d'erreurs
 app.use((err, req, res, next) => {
