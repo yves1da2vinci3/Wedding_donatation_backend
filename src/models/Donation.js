@@ -52,11 +52,6 @@ const donationSchema = new mongoose.Schema({
     required: [true, 'La méthode de paiement est requise'],
     enum: ['Wave', 'OM', 'MTN Momo', 'Moov', 'Visa Mastercard']
   },
-  option: {
-    type: String,
-    required: [true, 'L\'option est requise'],
-    enum: ['Option A', 'Option B', 'Option C']
-  },
   // Informations de traitement du paiement
   transactionId: {
     type: String,

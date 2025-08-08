@@ -1,0 +1,66 @@
+{
+  "event": "charge.success",
+  "data": {
+    "id": 5217179051,
+    "domain": "test",
+    "status": "success",
+    "reference": "wedding_donation_1754570102316",
+    "amount": 1000,
+    "message": null,
+    "gateway_response": "Approved",
+    "paid_at": "2025-08-07T12:35:07.000Z",
+    "created_at": "2025-08-07T12:35:06.000Z",
+    "channel": "mobile_money",
+    "currency": "XOF",
+    "ip_address": "102.208.129.223",
+    "metadata": {
+      "custom_fields": [],
+      "referrer": "http://localhost:8081/donation"
+    },
+    "fees_breakdown": null,
+    "log": null,
+    "fees": 23,
+    "fees_split": null,
+    "authorization": {
+      "authorization_code": "AUTH_u4fizbg8dz",
+      "bin": "0XXX",
+      "last4": "X0",
+      "exp_month": "12",
+      "exp_year": "9999",
+      "channel": "mobile_money",
+      "card_type": "",
+      "bank": "WAVE CIV",
+      "country_code": "CI",
+      "brand": "Wave civ",
+      "reusable": false,
+      "signature": null,
+      "account_name": null,
+      "receiver_bank_account_number": null,
+      "receiver_bank": null
+    },
+    "customer": {
+      "id": 297880838,
+      "first_name": "",
+      "last_name": "",
+      "email": "diomadelacorano@gmail.com",
+      "customer_code": "CUS_zyb474qhgspj0x7",
+      "phone": "",
+      "metadata": null,
+      "risk_action": "default",
+      "international_format_phone": null
+    },
+    "plan": {},
+    "subaccount": {},
+    "split": {},
+    "order_id": null,
+    "paidAt": "2025-08-07T12:35:07.000Z",
+    "requested_amount": 1000,
+    "pos_transaction_data": null,
+    "source": {
+      "type": "web",
+      "source": "checkout",
+      "entry_point": "request_inline",
+      "identifier": null
+    }
+  }
+}

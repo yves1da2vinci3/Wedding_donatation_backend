@@ -13,7 +13,6 @@ const getDonations = async (req, res) => {
       search,
       status,
       paymentMethod,
-      option,
       startDate,
       endDate,
       sortBy = 'createdAt',
@@ -31,11 +30,6 @@ const getDonations = async (req, res) => {
     // Filtre par méthode de paiement
     if (paymentMethod && paymentMethod !== 'all') {
       filter.paymentMethod = paymentMethod;
-    }
-
-    // Filtre par option
-    if (option && option !== 'all') {
-      filter.option = option;
     }
 
     // Filtre par recherche (nom du donateur ou référence)
@@ -168,7 +162,6 @@ const createDonation = async (req, res) => {
       donor,
       email,
       paymentMethod,
-      option,
       anonymous = false,
       message,
       envelope,
@@ -192,7 +185,6 @@ const createDonation = async (req, res) => {
       donor: anonymous ? 'Donation Anonyme' : donor,
       email: anonymous ? 'anonyme@system.com' : email,
       paymentMethod,
-      option,
       anonymous,
       message,
       envelope,
@@ -355,7 +347,7 @@ const exportDonationsCSV = async (req, res) => {
       .populate('envelope', 'title');
 
     // Générer le CSV
-    const csvHeader = 'Référence,Montant,Donateur,Email,Date,Heure,Statut,Méthode de paiement,Option,Message,Enveloppe,Anonyme\n';
+    const csvHeader = 'Référence,Montant,Donateur,Email,Date,Heure,Statut,Méthode de paiement,Message,Enveloppe,Anonyme\n';
     const csvData = donations.map(donation => {
       return [
         donation.reference,
@@ -366,7 +358,6 @@ const exportDonationsCSV = async (req, res) => {
         donation.time,
         donation.status,
         `"${donation.paymentMethod}"`,
-        donation.option,
         `"${(donation.message || '').replace(/"/g, '""')}"`,
         donation.envelope ? `"${donation.envelope.title}"` : '',
         donation.anonymous ? 'Oui' : 'Non'

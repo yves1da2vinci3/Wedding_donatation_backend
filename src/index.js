@@ -22,28 +22,31 @@ connectDB();
 app.use(helmet());
 
 // Gestion de plusieurs origines pour CORS
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:8081,http://localhost:8080")
-  .split(",")
-  .map(origin => origin.trim());
+// const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:8081,http://localhost:8080")
+//   .split(",")
+//   .map(origin => origin.trim());
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Autoriser les requêtes sans origin (comme Postman)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(
-          new Error("Not allowed by CORS: " + origin),
-          false
-        );
-      }
-    },
-    credentials: true,
-  })
-);
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // Autoriser les requêtes sans origin (comme Postman)
+//       if (!origin) return callback(null, true);
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       } else {
+//         return callback(
+//           new Error("Not allowed by CORS: " + origin),
+//           false
+//         );
+//       }
+//     },
+//     credentials: true,
+//   })
+// );
 
+app.use(cors({
+  origin : "*"
+}));
 // Middleware de logging
 app.use(morgan("dev"));
 
