@@ -31,13 +31,16 @@ const log = {
 async function main() {
   try {
     log.title('Création de l\'administrateur par défaut');
-    log.info('Connexion à la base de données...');
+    
+    // Vérifier la configuration
+    if (!config.mongodb?.uri) {
+      throw new Error('Configuration MongoDB manquante. Vérifiez votre fichier .env et la variable MONGODB_URI');
+    }
+    
+    log.info(`Connexion à la base de données: ${config.mongodb.uri}`);
 
     // Connexion à MongoDB
-    await mongoose.connect(config.database.uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    await mongoose.connect(config.mongodb.uri);
 
     log.success('Connexion à la base de données établie');
 

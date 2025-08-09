@@ -36,10 +36,7 @@ async function main() {
     log.info('Connexion à la base de données...');
 
     // Connexion à MongoDB
-    await mongoose.connect(config.database.uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    await mongoose.connect(config.mongodb.uri);
 
     log.success('Connexion à la base de données établie');
 
