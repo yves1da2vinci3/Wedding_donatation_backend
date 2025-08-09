@@ -11,6 +11,7 @@ const envelopeRoutes = require("./routes/envelopes");
 const dashboardRoutes = require("./routes/dashboard");
 const settingsRoutes = require("./routes/settings");
 const paystackRoutes = require("./routes/paystack");
+const paymentRoutes = require("./routes/payments");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -71,6 +72,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/settings", settingsRoutes);
 
 app.use("/api/paystack", paystackRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // Middleware de gestion d'erreurs
 app.use((err, req, res, next) => {

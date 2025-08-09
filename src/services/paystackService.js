@@ -102,6 +102,69 @@ class PaystackService {
     }
 
     /**
+     * Initialize a bank transaction
+     * @param {string} email - Customer email address
+     * @param {number} amount - Transaction amount (will be converted to kobo/cents)
+     * @param {string} currency - Transaction currency (default: XOF)
+     * @param {string} callback_url - URL to redirect after payment (optional)
+     * @returns {Promise<Object>} Bank transaction initialization response with authorization URL
+     * @example
+     * // Initialize bank payment
+     * const result = await paystackService.initializeBankTransaction(
+     *   "user@email.com", 1000, "XOF"
+     * );
+     * // Response: { authorization_url, access_code, reference }
+     */
+    async initializeBankTransaction(email, amount, currency = 'XOF', callback_url = null) {
+        try {
+            const payload = {
+                email: email,
+                amount: (amount * 100).toString(), // Convert to kobo/cents and stringify
+                currency: currency,
+                channels: ['bank'] // Restrict to bank channel only
+            };
+
+            // Add callback URL if provided
+            if (callback_url) {
+                payload.callback_url = callback_url;
+            }
+
+            console.log('Initializing bank transaction:', {
+                email,
+                amount,
+                currency,
+                has_callback: !!callback_url
+            });
+
+            const response = await this.paystack.post('/transaction/initialize', payload);
+            const responseData = response.data;
+
+            if (responseData.status) {
+                console.log('Bank transaction initialized successfully:', {
+                    reference: responseData.data?.reference,
+                    access_code: responseData.data?.access_code,
+                    has_authorization_url: !!responseData.data?.authorization_url
+                });
+            }
+
+            return responseData;
+        } catch (error) {
+            console.error('Bank transaction initialization failed:', {
+                email,
+                amount,
+                error: error.response?.data || error.message,
+                status: error.response?.status
+            });
+
+            return {
+                status: false,
+                message: error.response?.data?.message || 'Failed to initialize bank transaction',
+                error: error.response?.data || { message: error.message }
+            };
+        }
+    }
+
+    /**
      * Submit OTP for Orange Money payments
      * This method is required after initializing an Orange payment to complete the transaction
      * @param {string} otp - The OTP code received via SMS
@@ -211,4 +274,4 @@ class PaystackService {
 
 
 
-export default new PaystackService();
+module.exports = new PaystackService();
