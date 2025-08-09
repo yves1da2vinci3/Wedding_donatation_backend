@@ -130,7 +130,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
         if (!paystackService.validateMobileMoneyProvider(provider)) {
             return res.status(400).json({
                 status: false,
-                message: 'Invalid mobile money provider. Supported: wave, orange, mtn, moov'
+                message: 'Invalid mobile money provider. Supported: wave, orange, mtn'
             });
         }
 
@@ -144,7 +144,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
         }
 
         // Create callback URL for mobile money payments
-        const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/payments/mobile-money/callback`;
+        const callbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donation`;
 
         // Initialize mobile money payment with Paystack
         const paymentResult = await paystackService.initializeMobileMoneyTransaction(
@@ -173,8 +173,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
         const paymentMethodMap = {
             'wave': 'Wave',
             'orange': 'OM',
-            'mtn': 'MTN Momo',
-            'moov': 'Moov'
+            'mtn': 'MTN Momo'
         };
 
         const pendingDonation = await Donation.create({

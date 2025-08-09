@@ -228,7 +228,7 @@ class PaystackService {
      * const isInvalid = paystackService.validateMobileMoneyProvider("invalid"); // false
      */
     validateMobileMoneyProvider(provider) {
-        const supportedProviders = ['wave', 'orange', 'mtn', 'moov'];
+        const supportedProviders = ['wave', 'orange', 'mtn'];
         return supportedProviders.includes(provider.toLowerCase());
     }
 
