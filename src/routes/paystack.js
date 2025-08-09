@@ -84,6 +84,11 @@ router.post("/verify", async (req, res) => {
 
 
 router.post("/webhook", (req, res) => {
+  const { event , data } = req.body;
+  const reference = data.reference;
+  const provider =  data.bank;
+
+
   console.log("Paystack webhook received:", req.body);
   res.json({ message: "Paystack webhook received" });
 });
