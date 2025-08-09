@@ -151,6 +151,11 @@ const initializeMobileMoneyPayment = async (req, res) => {
             });
         }
 
+          // For anonymous donations, use default email if none provided
+          const donationEmail = donationData?.isAnonymous 
+          ? (email && email.trim() !== '' ? email : 'diomadelacorano@gmail.com')
+          : email;
+
         // Create callback URL for mobile money payments
         const callbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donation`;
 
@@ -173,10 +178,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
             ? 'Donateur Anonyme' 
             : `${donationData?.firstName || ''} ${donationData?.lastName || ''}`.trim() || 'Donateur';
         
-        // For anonymous donations, use default email if none provided
-        const donationEmail = donationData?.isAnonymous 
-            ? (email && email.trim() !== '' ? email : 'diomadelacorano@gmail.com')
-            : email;
+      
 
         // Map provider to model enum values
         const paymentMethodMap = {
