@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   getDonations,
   getDonationById,
+  getDonationByReference,
   createDonation,
   updateDonation,
   deleteDonation,
@@ -16,7 +17,10 @@ const {
   validateUpdateDonation
 } = require('../utils/validators');
 
-// Toutes les routes nécessitent une authentification
+// Routes publiques (sans authentification)
+router.get('/by-reference/:reference', getDonationByReference);
+
+// Routes protégées (avec authentification)
 router.use(authenticate);
 
 // @route   GET /api/donations/export/csv
@@ -28,6 +32,8 @@ router.get('/export/csv', exportDonationsCSV);
 // @desc    Obtenir toutes les donations avec filtres
 // @access  Private
 router.get('/', getDonations);
+
+
 
 // @route   GET /api/donations/:id
 // @desc    Obtenir une donation par ID

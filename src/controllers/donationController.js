@@ -118,6 +118,58 @@ const getDonations = async (req, res) => {
   }
 };
 
+// @desc    Obtenir une donation par référence de paiement
+// @route   GET /api/donations/by-reference/:reference
+// @access  Public
+const getDonationByReference = async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: 'Référence de paiement requise'
+      });
+    }
+
+    const donation = await Donation.findOne({ reference })
+      .populate('envelope', 'title amount');
+
+    if (!donation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Don non trouvé avec cette référence'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: donation._id,
+        reference: donation.reference,
+        donor: donation.donor,
+        email: donation.email,
+        amount: donation.amount,
+        message: donation.message,
+        anonymous: donation.anonymous,
+        firstName: donation.firstName,
+        lastName: donation.lastName,
+        status: donation.status,
+        paymentMethod: donation.paymentMethod,
+        date: donation.date,
+        envelope: donation.envelope
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching donation by reference:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la récupération du don'
+    });
+  }
+};
+
 // @desc    Obtenir une donation par ID
 // @route   GET /api/donations/:id
 // @access  Private
@@ -382,6 +434,7 @@ const exportDonationsCSV = async (req, res) => {
 module.exports = {
   getDonations,
   getDonationById,
+  getDonationByReference,
   createDonation,
   updateDonation,
   deleteDonation,

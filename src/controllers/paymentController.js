@@ -119,10 +119,18 @@ const initializeMobileMoneyPayment = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!email || !amount || !provider || !phone || !envelopeId) {
+        if (!amount || !provider || !phone || !envelopeId) {
             return res.status(400).json({
                 status: false,
-                message: 'Email, amount, provider, phone, and envelopeId are required'
+                message: 'Amount, provider, phone, and envelopeId are required'
+            });
+        }
+
+        // Email is required for non-anonymous donations
+        if (!donationData?.isAnonymous && !email) {
+            return res.status(400).json({
+                status: false,
+                message: 'Email is required for non-anonymous donations'
             });
         }
 
@@ -149,7 +157,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
         // Initialize mobile money payment with Paystack
         const paymentResult = await paystackService.initializeMobileMoneyTransaction(
             amount,
-            email,
+            donationEmail, // Use the processed email
             provider,
             phone,
             currency,
@@ -165,8 +173,9 @@ const initializeMobileMoneyPayment = async (req, res) => {
             ? 'Donateur Anonyme' 
             : `${donationData?.firstName || ''} ${donationData?.lastName || ''}`.trim() || 'Donateur';
         
-        const donationEmail = donationData?.isAnonymous && (!email || email.trim() === '')
-            ? 'diomadelacorano@gmail.com'
+        // For anonymous donations, use default email if none provided
+        const donationEmail = donationData?.isAnonymous 
+            ? (email && email.trim() !== '' ? email : 'diomadelacorano@gmail.com')
             : email;
 
         // Map provider to model enum values
