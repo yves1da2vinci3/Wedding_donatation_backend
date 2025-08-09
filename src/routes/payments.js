@@ -25,4 +25,7 @@ router.post('/webhook', webhookMiddleware, paymentController.handleWebhook);
 // Payment callback from Paystack (for bank payments)
 router.get('/callback', paymentController.handleCallback);
 
+// Payment callback for mobile money payments
+router.get('/mobile-money/callback', paymentController.handleMobileMoneyCallback);
+
 module.exports = router;

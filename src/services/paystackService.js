@@ -25,19 +25,20 @@ class PaystackService {
      * @param {string} provider - Mobile money provider (wave, orange, mtn, moov)
      * @param {string} phone - Customer phone number
      * @param {string} currency - Transaction currency (default: XOF)
+     * @param {string} callback_url - Callback URL for payment completion (optional)
      * @returns {Promise<Object>} Transaction initialization response
      * @example
      * // Wave payment initialization
      * const result = await paystackService.initializeMobileMoneyTransaction(
-     *   100, "user@email.com", "wave", "0748889874", "XOF"
+     *   100, "user@email.com", "wave", "0748889874", "XOF", "https://domain.com/callback"
      * );
      * 
      * // Orange payment initialization (requires OTP submission afterwards)
      * const result = await paystackService.initializeMobileMoneyTransaction(
-     *   100, "user@email.com", "orange", "0748889874", "XOF"
+     *   100, "user@email.com", "orange", "0748889874", "XOF", "https://domain.com/callback"
      * );
      */
-    async initializeMobileMoneyTransaction(amount, email, provider, phone, currency = 'XOF') {
+    async initializeMobileMoneyTransaction(amount, email, provider, phone, currency = 'XOF', callback_url = null) {
         try {
             // Prepare the request payload
             const payload = {
@@ -49,6 +50,11 @@ class PaystackService {
                     provider: provider.toLowerCase() // Ensure provider is lowercase
                 }
             };
+
+            // Add callback URL if provided
+            if (callback_url) {
+                payload.callback_url = callback_url;
+            }
 
             console.log('Initializing mobile money payment:', {
                 provider,

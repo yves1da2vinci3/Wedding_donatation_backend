@@ -143,13 +143,17 @@ const initializeMobileMoneyPayment = async (req, res) => {
             });
         }
 
+        // Create callback URL for mobile money payments
+        const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/payments/mobile-money/callback`;
+
         // Initialize mobile money payment with Paystack
         const paymentResult = await paystackService.initializeMobileMoneyTransaction(
             amount,
             email,
             provider,
             phone,
-            currency
+            currency,
+            callbackUrl
         );
 
         if (!paymentResult.status) {
@@ -630,11 +634,132 @@ const handleCallback = async (req, res) => {
     }
 };
 
+/**
+ * Handle mobile money payment callback
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const handleMobileMoneyCallback = async (req, res) => {
+    try {
+        const { reference, trxref, status, provider } = req.query;
+        const paymentReference = reference || trxref;
+
+        console.log('Mobile money callback received:', {
+            reference: paymentReference,
+            status: status,
+            provider: provider,
+            fullQuery: req.query,
+            timestamp: new Date().toISOString(),
+            userAgent: req.headers['user-agent']
+        });
+
+        // Validate that we have a reference
+        if (!paymentReference) {
+            console.error('No payment reference provided in mobile money callback');
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&error=missing_reference&provider=${provider || 'unknown'}`);
+        }
+
+        // Check if donation exists
+        const donation = await Donation.findOne({ reference: paymentReference });
+        if (!donation) {
+            console.error('Donation not found for reference:', paymentReference);
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=${paymentReference}&error=donation_not_found&provider=${provider || 'unknown'}`);
+        }
+
+        // Always verify payment with Paystack regardless of callback status
+        const verificationResult = await paystackService.verifyPayment(paymentReference);
+        
+        if (verificationResult.status) {
+            const paymentStatus = verificationResult.data?.status;
+            const amount = verificationResult.data?.amount;
+            
+            console.log('Mobile money payment verification result:', {
+                reference: paymentReference,
+                paymentStatus,
+                amount,
+                provider: provider,
+                verificationTimestamp: new Date().toISOString()
+            });
+
+            // Update donation based on verification result
+            if (paymentStatus === 'success') {
+                // Only update if not already completed
+                if (donation.status !== 'completed') {
+                    donation.status = 'completed';
+                    await donation.save();
+                    
+                    console.log('Mobile money donation completed via callback verification:', {
+                        reference: paymentReference,
+                        donationId: donation._id,
+                        provider: provider,
+                        amount: amount ? amount / 100 : 'unknown'
+                    });
+                }
+                
+                // Redirect to frontend confirmation page with donation data
+                const redirectUrl = new URL(`${process.env.FRONTEND_URL}/confirmation`);
+                redirectUrl.searchParams.set('success', 'true');
+                redirectUrl.searchParams.set('reference', paymentReference);
+                redirectUrl.searchParams.set('provider', provider || donation.paymentMethod);
+                redirectUrl.searchParams.set('amount', amount ? (amount / 100).toString() : donation.amount.toString());
+                redirectUrl.searchParams.set('donor', donation.donor);
+                redirectUrl.searchParams.set('callback_type', 'mobile_money');
+                
+                return res.redirect(redirectUrl.toString());
+                
+            } else if (paymentStatus === 'failed') {
+                donation.status = 'failed';
+                await donation.save();
+                
+                console.log('Mobile money donation failed via callback verification:', {
+                    reference: paymentReference,
+                    donationId: donation._id,
+                    provider: provider
+                });
+                
+                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=failed&reference=${paymentReference}&provider=${provider || 'unknown'}`);
+                
+            } else {
+                // Payment still pending or other status
+                console.log('Mobile money payment verification returned non-final status:', {
+                    reference: paymentReference,
+                    status: paymentStatus,
+                    provider: provider
+                });
+                
+                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=pending&reference=${paymentReference}&provider=${provider || 'unknown'}`);
+            }
+        } else {
+            // Verification failed
+            console.error('Mobile money payment verification failed:', {
+                reference: paymentReference,
+                provider: provider,
+                verificationError: verificationResult.message || 'Unknown error'
+            });
+            
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=verification_failed&reference=${paymentReference}&provider=${provider || 'unknown'}`);
+        }
+
+    } catch (error) {
+        console.error('Mobile money payment callback error:', {
+            error: error.message,
+            stack: error.stack,
+            reference: req.query?.reference || req.query?.trxref,
+            provider: req.query?.provider
+        });
+        
+        const reference = req.query?.reference || req.query?.trxref || 'unknown';
+        const provider = req.query?.provider || 'unknown';
+        res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=${reference}&provider=${provider}&error=callback_exception`);
+    }
+};
+
 module.exports = {
     initializeBankPayment,
     initializeMobileMoneyPayment,
     submitMobileMoneyOtp,
     verifyPayment,
     handleWebhook,
-    handleCallback
+    handleCallback,
+    handleMobileMoneyCallback
 };
