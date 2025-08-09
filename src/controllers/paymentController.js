@@ -1,6 +1,7 @@
 const paystackService = require('../services/paystackService');
 const Donation = require('../models/Donation');
 const Envelope = require('../models/Envelope');
+const crypto = require('crypto');
 
 /**
  * Payment Controller
@@ -338,37 +339,84 @@ const verifyPayment = async (req, res) => {
 };
 
 /**
- * Handle Paystack webhook
+ * Verify Paystack webhook signature
+ * @param {string} rawPayload - Raw request body string
+ * @param {string} signature - Paystack signature from headers
+ * @returns {boolean} - True if signature is valid
+ */
+const verifyWebhookSignature = (rawPayload, signature) => {
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) {
+        console.error('PAYSTACK_SECRET_KEY not found in environment variables');
+        return false;
+    }
+    
+    const hash = crypto.createHmac('sha512', secret)
+        .update(rawPayload)
+        .digest('hex');
+    
+    return hash === signature;
+};
+
+/**
+ * Handle Paystack webhook with signature verification
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
 const handleWebhook = async (req, res) => {
     try {
-        const event = req.body;
+        // Get the signature from headers
+        const signature = req.headers['x-paystack-signature'];
         
-        console.log('Paystack webhook received:', {
-            event: event.event,
-            reference: event.data?.reference
-        });
-
-        // Handle charge.success event
-        if (event.event === 'charge.success') {
-            const { reference, status, amount } = event.data;
-            
-            // Update donation status
-            const donation = await Donation.findOne({ reference });
-            if (donation && status === 'success') {
-                donation.status = 'completed';
-                await donation.save();
-                
-                console.log('Donation completed via webhook:', {
-                    reference,
-                    donationId: donation._id
-                });
-            }
+        if (!signature) {
+            console.error('Missing x-paystack-signature header');
+            return res.status(400).json({
+                status: false,
+                message: 'Missing signature'
+            });
         }
 
-        res.status(200).json({ status: 'success' });
+        // Verify webhook signature using raw body
+        const rawBody = req.rawBody || JSON.stringify(req.body);
+        if (!verifyWebhookSignature(rawBody, signature)) {
+            console.error('Invalid webhook signature');
+            return res.status(400).json({
+                status: false,
+                message: 'Invalid signature'
+            });
+        }
+
+        const event = req.body;
+        
+        console.log('Verified Paystack webhook received:', {
+            event: event.event,
+            reference: event.data?.reference,
+            timestamp: new Date().toISOString()
+        });
+
+        // Handle different webhook events
+        switch (event.event) {
+            case 'charge.success':
+                await handleChargeSuccess(event.data);
+                break;
+                
+            case 'charge.failed':
+                await handleChargeFailed(event.data);
+                break;
+                
+            case 'charge.pending':
+                await handleChargePending(event.data);
+                break;
+                
+            default:
+                console.log('Unhandled webhook event:', event.event);
+        }
+
+        // Always respond with 200 to acknowledge receipt
+        res.status(200).json({ 
+            status: 'success',
+            message: 'Webhook processed successfully'
+        });
 
     } catch (error) {
         console.error('Webhook handling error:', error);
@@ -381,43 +429,204 @@ const handleWebhook = async (req, res) => {
 };
 
 /**
+ * Handle successful charge webhook
+ * @param {Object} data - Webhook event data
+ */
+const handleChargeSuccess = async (data) => {
+    try {
+        const { reference, status, amount, customer, authorization } = data;
+        
+        console.log('Processing charge.success:', {
+            reference,
+            status,
+            amount,
+            customer_email: customer?.email
+        });
+
+        // Find and update donation
+        const donation = await Donation.findOne({ reference });
+        if (donation) {
+            // Only update if not already completed
+            if (donation.status !== 'completed') {
+                donation.status = 'completed';
+                await donation.save();
+                
+                console.log('Donation marked as completed via webhook:', {
+                    reference,
+                    donationId: donation._id,
+                    amount: amount / 100 // Convert from kobo to main currency
+                });
+            } else {
+                console.log('Donation already completed:', reference);
+            }
+        } else {
+            console.warn('Donation not found for reference:', reference);
+        }
+    } catch (error) {
+        console.error('Error handling charge.success:', error);
+        throw error;
+    }
+};
+
+/**
+ * Handle failed charge webhook
+ * @param {Object} data - Webhook event data
+ */
+const handleChargeFailed = async (data) => {
+    try {
+        const { reference, status } = data;
+        
+        console.log('Processing charge.failed:', {
+            reference,
+            status
+        });
+
+        // Find and update donation
+        const donation = await Donation.findOne({ reference });
+        if (donation) {
+            donation.status = 'failed';
+            await donation.save();
+            
+            console.log('Donation marked as failed via webhook:', {
+                reference,
+                donationId: donation._id
+            });
+        }
+    } catch (error) {
+        console.error('Error handling charge.failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Handle pending charge webhook
+ * @param {Object} data - Webhook event data
+ */
+const handleChargePending = async (data) => {
+    try {
+        const { reference, status } = data;
+        
+        console.log('Processing charge.pending:', {
+            reference,
+            status
+        });
+
+        // Find and update donation status if needed
+        const donation = await Donation.findOne({ reference });
+        if (donation && donation.status === 'pending') {
+            // Keep as pending but log the update
+            console.log('Donation remains pending via webhook:', {
+                reference,
+                donationId: donation._id
+            });
+        }
+    } catch (error) {
+        console.error('Error handling charge.pending:', error);
+        throw error;
+    }
+};
+
+/**
  * Handle payment callback from Paystack (for bank payments)
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
 const handleCallback = async (req, res) => {
     try {
-        const { reference, trxref } = req.query;
+        const { reference, trxref, status } = req.query;
         const paymentReference = reference || trxref;
 
         console.log('Payment callback received:', {
             reference: paymentReference,
-            query: req.query
+            status: status,
+            fullQuery: req.query,
+            timestamp: new Date().toISOString(),
+            userAgent: req.headers['user-agent']
         });
 
-        if (paymentReference) {
-            // Verify the payment
-            const verificationResult = await paystackService.verifyPayment(paymentReference);
-            
-            if (verificationResult.status && verificationResult.data?.status === 'success') {
-                // Update donation status
-                const donation = await Donation.findOne({ reference: paymentReference });
-                if (donation) {
-                    donation.status = 'completed';
-                    await donation.save();
-                }
-                
-                // Redirect to frontend with success status
-                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=success&reference=${paymentReference}`);
-            }
+        // Validate that we have a reference
+        if (!paymentReference) {
+            console.error('No payment reference provided in callback');
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&error=missing_reference`);
         }
 
-        // Redirect to frontend with error status
-        res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=${paymentReference || 'unknown'}`);
+        // Check if donation exists
+        const donation = await Donation.findOne({ reference: paymentReference });
+        if (!donation) {
+            console.error('Donation not found for reference:', paymentReference);
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=${paymentReference}&error=donation_not_found`);
+        }
+
+        // Always verify payment with Paystack regardless of callback status
+        const verificationResult = await paystackService.verifyPayment(paymentReference);
+        
+        if (verificationResult.status) {
+            const paymentStatus = verificationResult.data?.status;
+            const amount = verificationResult.data?.amount;
+            
+            console.log('Payment verification result:', {
+                reference: paymentReference,
+                paymentStatus,
+                amount,
+                verificationTimestamp: new Date().toISOString()
+            });
+
+            // Update donation based on verification result
+            if (paymentStatus === 'success') {
+                // Only update if not already completed
+                if (donation.status !== 'completed') {
+                    donation.status = 'completed';
+                    await donation.save();
+                    
+                    console.log('Donation completed via callback verification:', {
+                        reference: paymentReference,
+                        donationId: donation._id,
+                        amount: amount ? amount / 100 : 'unknown'
+                    });
+                }
+                
+                // Redirect to frontend with success
+                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=success&reference=${paymentReference}`);
+                
+            } else if (paymentStatus === 'failed') {
+                donation.status = 'failed';
+                await donation.save();
+                
+                console.log('Donation failed via callback verification:', {
+                    reference: paymentReference,
+                    donationId: donation._id
+                });
+                
+                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=failed&reference=${paymentReference}`);
+                
+            } else {
+                // Payment still pending or other status
+                console.log('Payment verification returned non-final status:', {
+                    reference: paymentReference,
+                    status: paymentStatus
+                });
+                
+                return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=pending&reference=${paymentReference}`);
+            }
+        } else {
+            // Verification failed
+            console.error('Payment verification failed:', {
+                reference: paymentReference,
+                verificationError: verificationResult.message || 'Unknown error'
+            });
+            
+            return res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=verification_failed&reference=${paymentReference}`);
+        }
 
     } catch (error) {
-        console.error('Payment callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=unknown`);
+        console.error('Payment callback error:', {
+            error: error.message,
+            stack: error.stack,
+            reference: req.query?.reference || req.query?.trxref
+        });
+        
+        const reference = req.query?.reference || req.query?.trxref || 'unknown';
+        res.redirect(`${process.env.FRONTEND_URL}/donation?payment_status=error&reference=${reference}&error=callback_exception`);
     }
 };
 
