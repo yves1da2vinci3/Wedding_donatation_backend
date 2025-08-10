@@ -59,7 +59,7 @@ class PaystackService {
     try {
       // Prepare the request payload
       const payload = {
-        amount: amount, // Send amount directly as provided (not multiplied by 100)
+        amount: amount * 100, // Paystack expects amount in kobo/cents for XOF
         email: email,
         currency: currency,
         mobile_money: {
@@ -183,7 +183,7 @@ class PaystackService {
     try {
       const payload = {
         email: email,
-        amount: amount.toString(), // Send amount directly as provided (not multiplied by 100)
+        amount: (amount * 100).toString(), // Paystack expects amount in kobo/cents for XOF
         currency: currency,
         channels: ["bank"], // Restrict to bank channel only
       };
