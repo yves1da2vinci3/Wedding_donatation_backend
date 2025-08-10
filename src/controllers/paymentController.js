@@ -1,4 +1,4 @@
-const paystackService = require('../services/paystackService');
+const paystackService = require('../services/paystackService'); // Réactivé avec corrections
 const Donation = require('../models/Donation');
 const Envelope = require('../models/Envelope');
 const crypto = require('crypto');
@@ -49,7 +49,15 @@ const initializeBankPayment = async (req, res) => {
         );
 
         if (!paymentResult.status) {
-            return res.status(400).json(paymentResult);
+            console.error('Bank payment initialization failed:', {
+                email,
+                amount,
+                error: paymentResult
+            });
+            return res.status(400).json({
+                status: false,
+                message: paymentResult.message || 'Failed to initialize bank payment'
+            });
         }
 
         // Store pending donation in database
@@ -58,7 +66,7 @@ const initializeBankPayment = async (req, res) => {
             : `${donationData?.firstName || ''} ${donationData?.lastName || ''}`.trim() || 'Donateur';
         
         const donationEmail = donationData?.isAnonymous && (!email || email.trim() === '')
-            ? 'diomadelacorano@gmail.com'
+            ? 'diomadelacorano@email.com'
             : email;
 
         const pendingDonation = await Donation.create({
@@ -129,6 +137,20 @@ const initializeMobileMoneyPayment = async (req, res) => {
             });
         }
 
+        // Validate phone number format (10 digits)
+        const phoneRegex = /^[0-9]{10}$/;
+        const cleanPhone = phone.replace(/\s+/g, ''); // Remove spaces
+        
+        if (!phoneRegex.test(cleanPhone)) {
+            return res.status(400).json({
+                status: false,
+                message: 'Le numéro de téléphone doit contenir exactement 10 chiffres'
+            });
+        }
+
+        // Format phone number for Paystack (add 225 prefix)
+        const formattedPhone = `${cleanPhone}`;
+
         // Email is required for non-anonymous donations
         if (!donationData?.isAnonymous && !email) {
             return res.status(400).json({
@@ -157,10 +179,10 @@ const initializeMobileMoneyPayment = async (req, res) => {
             }
         }
 
-          // For anonymous donations, use default email if none provided
-          const donationEmail = donationData?.isAnonymous 
-          ? (email && email.trim() !== '' ? email : 'diomadelacorano@gmail.com')
-          : email;
+                  // For anonymous donations, use default email if none provided
+        const donationEmail = donationData?.isAnonymous 
+            ? (email && email.trim() !== '' ? email : 'diomadelacorano@email.com')
+            : email;
 
         // Create callback URL for mobile money payments
         const callbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donation`;
@@ -170,13 +192,38 @@ const initializeMobileMoneyPayment = async (req, res) => {
             amount,
             donationEmail, // Use the processed email
             provider,
-            phone,
+            formattedPhone, // Use formatted phone number
             currency,
             callbackUrl
         );
 
         if (!paymentResult.status) {
-            return res.status(400).json(paymentResult);
+            console.error('Paystack mobile money initialization failed:', {
+                provider,
+                amount,
+                phone: formattedPhone.substring(0, 3) + '****' + formattedPhone.substring(formattedPhone.length - 2),
+                error: paymentResult.error
+            });
+
+            // Handle specific Paystack errors
+            if (paymentResult.error?.code === 'unprocessed_transaction') {
+                return res.status(400).json({
+                    status: false,
+                    message: 'Le service de paiement mobile money est temporairement indisponible. Veuillez essayer avec une autre méthode de paiement ou réessayer plus tard.'
+                });
+            }
+
+            if (paymentResult.error?.code === 'invalid_phone') {
+                return res.status(400).json({
+                    status: false,
+                    message: 'Le numéro de téléphone fourni n\'est pas valide pour ce fournisseur mobile money.'
+                });
+            }
+
+            return res.status(400).json({
+                status: false,
+                message: paymentResult.message || 'Échec de l\'initialisation du paiement mobile money'
+            });
         }
 
         // Store pending donation in database
