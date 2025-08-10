@@ -66,10 +66,11 @@ const donationSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  // Enveloppe utilisée (référence)
+  // Enveloppe utilisée (référence) - optionnelle pour dons personnalisés
   envelope: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Envelope'
+    ref: 'Envelope',
+    required: false
   }
 }, {
   timestamps: true

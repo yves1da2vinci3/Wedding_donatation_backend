@@ -18,20 +18,23 @@ const initializeBankPayment = async (req, res) => {
         const { email, amount, currency = 'XOF', donationData, envelopeId } = req.body;
 
         // Validate required fields
-        if (!email || !amount || !envelopeId) {
+        if (!email || !amount) {
             return res.status(400).json({
                 status: false,
-                message: 'Email, amount, and envelopeId are required'
+                message: 'Email and amount are required'
             });
         }
 
-        // Verify envelope exists
-        const envelope = await Envelope.findById(envelopeId);
-        if (!envelope) {
-            return res.status(404).json({
-                status: false,
-                message: 'Envelope not found'
-            });
+        // Verify envelope exists if provided
+        let envelope = null;
+        if (envelopeId) {
+            envelope = await Envelope.findById(envelopeId);
+            if (!envelope) {
+                return res.status(404).json({
+                    status: false,
+                    message: 'Envelope not found'
+                });
+            }
         }
 
         // Create callback URL
@@ -60,7 +63,7 @@ const initializeBankPayment = async (req, res) => {
 
         const pendingDonation = await Donation.create({
             reference: paymentResult.data.reference,
-            envelope: envelopeId,
+            envelope: envelopeId || null,
             amount: amount,
             donor: donorName,
             email: donationEmail,
@@ -119,10 +122,10 @@ const initializeMobileMoneyPayment = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!amount || !provider || !phone || !envelopeId) {
+        if (!amount || !provider || !phone) {
             return res.status(400).json({
                 status: false,
-                message: 'Amount, provider, phone, and envelopeId are required'
+                message: 'Amount, provider, and phone are required'
             });
         }
 
@@ -142,13 +145,16 @@ const initializeMobileMoneyPayment = async (req, res) => {
             });
         }
 
-        // Verify envelope exists
-        const envelope = await Envelope.findById(envelopeId);
-        if (!envelope) {
-            return res.status(404).json({
-                status: false,
-                message: 'Envelope not found'
-            });
+        // Verify envelope exists if provided
+        let envelope = null;
+        if (envelopeId) {
+            envelope = await Envelope.findById(envelopeId);
+            if (!envelope) {
+                return res.status(404).json({
+                    status: false,
+                    message: 'Envelope not found'
+                });
+            }
         }
 
           // For anonymous donations, use default email if none provided
@@ -189,7 +195,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
 
         const pendingDonation = await Donation.create({
             reference: paymentResult.data.reference,
-            envelope: envelopeId,
+            envelope: envelopeId || null,
             amount: amount,
             donor: donorName,
             email: donationEmail,
