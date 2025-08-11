@@ -40,9 +40,14 @@ const initializeBankPayment = async (req, res) => {
         // Create callback URL
         const callbackUrl = `${process.env.FRONTEND_URL}/donation?payment_status=callback`;
 
+        // For anonymous donations, generate a unique email if none provided
+        const donationEmail = donationData?.isAnonymous && (!email || email.trim() === '')
+            ? `anonymous-${Date.now()}@wedding-donation.com`
+            : email;
+
         // Initialize bank payment with Paystack
         const paymentResult = await paystackService.initializeBankTransaction(
-            email,
+            donationEmail,
             amount,
             currency,
             callbackUrl
@@ -64,10 +69,6 @@ const initializeBankPayment = async (req, res) => {
         const donorName = donationData?.isAnonymous 
             ? 'Donateur Anonyme' 
             : `${donationData?.firstName || ''} ${donationData?.lastName || ''}`.trim() || 'Donateur';
-        
-        const donationEmail = donationData?.isAnonymous && (!email || email.trim() === '')
-            ? 'diomadelacorano@email.com'
-            : email;
 
         const pendingDonation = await Donation.create({
             reference: paymentResult.data.reference,
@@ -179,9 +180,9 @@ const initializeMobileMoneyPayment = async (req, res) => {
             }
         }
 
-                  // For anonymous donations, use default email if none provided
+                  // For anonymous donations, generate a unique email if none provided
         const donationEmail = donationData?.isAnonymous 
-            ? (email && email.trim() !== '' ? email : 'diomadelacorano@email.com')
+            ? (email && email.trim() !== '' ? email : `anonymous-${Date.now()}@wedding-donation.com`)
             : email;
 
         // Create callback URL for mobile money payments
