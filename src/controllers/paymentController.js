@@ -17,8 +17,11 @@ const initializeBankPayment = async (req, res) => {
     try {
         const { email, amount, currency = 'XOF', donationData, envelopeId } = req.body;
 
+        // Clean and validate amount
+        const cleanAmount = typeof amount === 'string' ? parseFloat(amount.trim()) : amount;
+
         // Validate required fields
-        if (!email || !amount) {
+        if (!email || !cleanAmount) {
             return res.status(400).json({
                 status: false,
                 message: 'Email and amount are required'
@@ -48,7 +51,7 @@ const initializeBankPayment = async (req, res) => {
         // Initialize bank payment with Paystack
         const paymentResult = await paystackService.initializeBankTransaction(
             donationEmail,
-            amount,
+            cleanAmount,
             currency,
             callbackUrl
         );
@@ -73,7 +76,7 @@ const initializeBankPayment = async (req, res) => {
         const pendingDonation = await Donation.create({
             reference: paymentResult.data.reference,
             envelope: envelopeId || null,
-            amount: amount,
+            amount: cleanAmount,
             donor: donorName,
             email: donationEmail,
             message: donationData?.message || '',
@@ -130,8 +133,11 @@ const initializeMobileMoneyPayment = async (req, res) => {
             envelopeId 
         } = req.body;
 
+        // Clean and validate amount
+        const cleanAmount = typeof amount === 'string' ? parseFloat(amount.trim()) : amount;
+
         // Validate required fields
-        if (!amount || !provider || !phone) {
+        if (!cleanAmount || !provider || !phone) {
             return res.status(400).json({
                 status: false,
                 message: 'Amount, provider, and phone are required'
@@ -190,7 +196,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
 
         // Initialize mobile money payment with Paystack
         const paymentResult = await paystackService.initializeMobileMoneyTransaction(
-            amount,
+            cleanAmount,
             donationEmail, // Use the processed email
             provider,
             formattedPhone, // Use formatted phone number
@@ -244,7 +250,7 @@ const initializeMobileMoneyPayment = async (req, res) => {
         const pendingDonation = await Donation.create({
             reference: paymentResult.data.reference,
             envelope: envelopeId || null,
-            amount: amount,
+            amount: cleanAmount,
             donor: donorName,
             email: donationEmail,
             message: donationData?.message || '',

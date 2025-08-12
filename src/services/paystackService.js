@@ -57,9 +57,12 @@ class PaystackService {
     callback_url = null
   ) {
     try {
+      // Clean amount to ensure it's a valid number
+      const cleanAmount = typeof amount === 'string' ? parseFloat(amount.trim()) : amount;
+      
       // Prepare the request payload
       const payload = {
-        amount: Math.round(amount * 100), // Paystack expects amount in kobo/cents for XOF, ensure it's an integer
+        amount: Math.round(cleanAmount * 100), // Paystack expects amount in kobo/cents for XOF, ensure it's an integer
         email: email,
         currency: currency,
         mobile_money: {
@@ -76,7 +79,7 @@ class PaystackService {
 
       console.log("Initializing mobile money payment:", {
         provider,
-        amount,
+        amount: cleanAmount,
         currency,
         phone:
           phone.substring(0, 3) + "****" + phone.substring(phone.length - 2), // Log masked phone
@@ -181,9 +184,12 @@ class PaystackService {
     callback_url = null
   ) {
     try {
+      // Clean amount to ensure it's a valid number
+      const cleanAmount = typeof amount === 'string' ? parseFloat(amount.trim()) : amount;
+      
       const payload = {
         email: email,
-        amount: Math.round(amount * 100).toString(), // Paystack expects amount in kobo/cents for XOF, ensure it's an integer
+        amount: Math.round(cleanAmount * 100).toString(), // Paystack expects amount in kobo/cents for XOF, ensure it's an integer
         currency: currency,
         channels: ["bank"], // Restrict to bank channel only
       };
@@ -195,7 +201,7 @@ class PaystackService {
 
       console.log("Initializing bank transaction:", {
         email,
-        amount,
+        amount: cleanAmount,
         currency,
         has_callback: !!callback_url,
       });
