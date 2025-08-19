@@ -191,7 +191,7 @@ class PaystackService {
         email: email,
         amount: Math.round(cleanAmount * 100).toString(), // Paystack expects amount in kobo/cents for XOF, ensure it's an integer
         currency: currency,
-        channels: ["bank"], // Restrict to bank channel only
+        channels: ["card"], // Restrict to bank channel only
       };
 
       // Add callback URL if provided
